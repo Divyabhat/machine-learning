@@ -22,29 +22,33 @@ class DigitIdentifier:
         self.actualList = []
         self.predList = []
 
+        self.trainingTargetClassList = []
+        self.validationTargetClassList = []
+
     def load_csv(self, filepath):
         fd = open(filepath, 'r')
         fileContent = csv.reader(fd)
-        fileContentList = list(fileContent)
-        storedArray = np.array(fileContentList)
-        return storedArray
+        fileContentListStr = list(fileContent)
+        fileContentListInt = [list(map(int,i) ) for i in fileContentListStr]
+        storedArray = np.array(fileContentListInt)
+
+        normalizedArray = np.divide(storedArray, float(255))
+
+        targetClassList = []
+        for i in range(storedArray.shape[0]):
+            targetClassList.append(storedArray[i, 0].astype('int'))
+            normalizedArray[i, 0] = 1
+
+        return normalizedArray, targetClassList
 
     def load_training_and_validation_file(self):
-        self.trainingArray = self.load_csv(self.trainingDataFile)
-        self.validationArray = self.load_csv(self.validationDataFile)
+        self.trainingArray, self.trainingTargetClassList = self.load_csv(self.trainingDataFile)
+        self.validationArray, self.validationTargetClassList = self.load_csv(self.validationDataFile)
 
     def fill_target_list(self, targetClass):
         targetList = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         targetList[targetClass] = 1
         return targetList
-
-    def normalize_input(self, inputRow):
-        inputRowFloat = inputRow.astype('float16') / 255
-
-        # First element is always bias, so initialize to 1
-        inputRowFloat[0] = 1
-        inputRowFloat = inputRowFloat.reshape(1, 785)
-        return inputRowFloat
 
     def calculate_yvalue(self, percepValue):
         if (percepValue <= 0):
@@ -52,28 +56,27 @@ class DigitIdentifier:
         else:
             return 1
 
-    def learn_and_find_accuracy(self, epoch, dataArray, accuracyArray, trainingExecution):
+    def learn_and_find_accuracy(self, epoch, dataArray, targetClassList, trainingExecution):
         self.predList = []
         self.actualList = []
 
         for i in range(0, dataArray.shape[0]):
-            targetClass = dataArray[i, 0].astype('int')
+            targetClass = targetClassList[i]
             targetList = self.fill_target_list(targetClass)
-
-            inputRowFloat = self.normalize_input(dataArray[i])
+            #print("Target class = ", targetClass)
 
             percepList = []
             yList = []
             self.actualList.append(targetClass)
 
             for perceptronIndex in range(10):
-                percepValue = np.dot(inputRowFloat, self.weights[perceptronIndex, :])
+                percepValue = np.dot(dataArray[i], self.weights[perceptronIndex, :])
                 yValue = self.calculate_yvalue(percepValue)
                 percepList.append(percepValue)
                 yList.append(yValue)
 
                 if trainingExecution and epoch > 0:
-                    deltaWeight = self.learningRate * (targetList[perceptronIndex] - yList[perceptronIndex]) * inputRowFloat
+                    deltaWeight = self.learningRate * (targetList[perceptronIndex] - yList[perceptronIndex]) * dataArray[i]
                     self.weights[perceptronIndex, :] = self.weights[perceptronIndex, :] + deltaWeight
 
             self.predList.append(np.argmax(np.array(percepList)))
@@ -88,12 +91,12 @@ class DigitIdentifier:
             csvWriter.writerow([accuracyIndex, accuracy])
 
     def execute_trained_data(self, epoch):
-        accuracy = self.learn_and_find_accuracy(epoch, self.trainingArray, self.trainingAccuracy, True)
+        accuracy = self.learn_and_find_accuracy(epoch, self.trainingArray, self.trainingTargetClassList, True)
         self.trainingAccuracy.append(accuracy)
         self.store_accuracy('train_output' + str(self.learningRate) + '.csv', epoch, accuracy)
 
     def execute_validation_data(self, epoch):
-        accuracy = self.learn_and_find_accuracy(epoch, self.validationArray, self.validationAccuracy, False)
+        accuracy = self.learn_and_find_accuracy(epoch, self.validationArray, self.validationTargetClassList ,False)
         self.validationAccuracy.append(accuracy)
         self.store_accuracy('validation_output' + str(self.learningRate) + '.csv', epoch, accuracy)
         print("Learning rate = %s, Validation Accuracy for epoch %s = %s" % (self.learningRate, epoch, accuracy))
