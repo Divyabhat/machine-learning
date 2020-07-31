@@ -63,6 +63,9 @@ class MultiLayerDigitIdentifier:
         self.epochs = 50
         self.momentum = momentum
         
+
+        ### Initialize the weight variable of the dimension 10 x 785  and initialize weight fot hidden layer
+        ### i.e(101 x 10)
         self.wInputToHidden = np.random.uniform(-0.05, 0.05, (self.inputNodes, self.hiddenNodes))
         self.wHiddenToOutput = np.random.uniform(-0.05, 0.05, (self.hiddenNodes + 1, self.outputNodes))
            
@@ -78,8 +81,10 @@ class MultiLayerDigitIdentifier:
         self.trainingAccuracy = []
         self.validationAccuracy = []
 
+        ##Sigmiod activation function
         self.activationFunc = lambda x : scipy.special.expit(x)
 
+    ## Initilize the training and validation data
     def initialize_training_and_validation_file(self, trainingDataLoader, validationDataLoader):
         self.trainingArray = trainingDataLoader.dataArray
         self.trainingTargetClassList = trainingDataLoader.targetClassList
@@ -87,11 +92,14 @@ class MultiLayerDigitIdentifier:
         self.validationArray = validationDataLoader.dataArray
         self.validationTargetClassList = validationDataLoader.targetClassList
 
+    ## function is to fill the target list
     def fill_target_list(self, targetClass):
         targetList = np.zeros((1,self.outputNodes))+0.1
         targetList[0, targetClass] = 0.9
         return targetList
 
+    ## for each value of hidden unit apply forward and backward propagation and 
+    ## calclualte the error terms for output and hidden layer.
     def learn_and_find_accuracy(self, epoch, dataArray, targetClassList, trainingExecution):
         self.predList = []
         self.actualList = []
@@ -101,17 +109,18 @@ class MultiLayerDigitIdentifier:
         
             inputArray = dataArray[i]
             inputArray = inputArray.reshape(1, self.inputNodes)
-            #print("Input array shape = ", inputArray.shape)
-            #print("W Input to hidden shape = ", self.wInputToHidden.shape)
+
+            ##Forward propagate the activation times the weights to each node in the hidden layer.
             hiddenLayerValues = np.dot(inputArray, self.wInputToHidden)
             hiddenLayerSigmoid = self.activationFunc(hiddenLayerValues)
-            #print ("hidden outputs shape = ", hiddenLayerSigmoid.shape)
+           
 
             self.hiddenWithBias[0, 1:] = hiddenLayerSigmoid
-
+            
+            ## Forward propagate the activations times weights from the hidden layer to the output layer.
             finalLayerValues = np.dot(self.hiddenWithBias, self.wHiddenToOutput)
             finalLayerSigmoid = self.activationFunc(finalLayerValues)
-            #print("Final outputs shape = ", finalLayerSigmoid.shape)
+         
 
             self.predList.append(np.argmax(finalLayerSigmoid))
             self.actualList.append(targetClass)
@@ -119,19 +128,25 @@ class MultiLayerDigitIdentifier:
             if trainingExecution and epoch > 0:
                 targetList = self.fill_target_list(targetClass)
 
+                ## Calculate the error terms for output unit
                 errorOutputLayer = finalLayerSigmoid * (1 - finalLayerSigmoid) * (targetList - finalLayerSigmoid)
+
+                ## Calculate the error terms for hidden unit
                 errorHiddenLayer = hiddenLayerSigmoid * (1 - hiddenLayerSigmoid) * np.dot(errorOutputLayer, self.wHiddenToOutput[1:,:].T)
 
+                ## Update the weights for hidden to output layer by introducing the momentum, 
+                ## in which change in weight is depend on past weight change
                 deltaHiddenWeight = (self.learningRate * errorOutputLayer * self.hiddenWithBias.T) + (self.momentum * self.wPreviousHiddenToOutput)
                 self.wPreviousHiddenToOutput = deltaHiddenWeight
                 self.wHiddenToOutput = self.wHiddenToOutput + deltaHiddenWeight
 
+                ## Update the weights for input to hidden layer by introducing the momentum,
+                ## in which change in weight is depend on past weight change
                 deltaInputWeight = (self.learningRate * errorHiddenLayer * inputArray.T) + (self.momentum * self.wPreviousInputToHidden)
                 self.wPreviousInputToHidden = deltaInputWeight
                 self.wInputToHidden = self.wInputToHidden + deltaInputWeight
 
         accuracy = ((np.array(self.predList) == np.array(self.actualList)).sum() / float(len(self.actualList))) * 100
-        #print ("Accuracy = ", accuracy)
         return accuracy
 
     ### store_accuracy function: used to store accuracy for each learning rate for either validation/train dataset
@@ -155,8 +170,8 @@ class MultiLayerDigitIdentifier:
         self.store_accuracy('validation_output_exp3_' + str(self.momentum) + '.csv', epoch, accuracy)
         print("Momentum = %s, Validation Accuracy for epoch %s = %s" % (self.momentum, epoch, accuracy))
 
-    ### Loop through training and validation data for 50 epochs and calculate the accuracy
-    ###Print confusion matrix for results on test data after 50 epochs of training.
+    ## Loop through training and validation data for 50 epochs and calculate the accuracy
+    ## Print confusion matrix for results on test data after 50 epochs of training.
     def learn_digits(self):
         for epoch in range(50):
             self.SSE = 0
@@ -180,6 +195,9 @@ if __name__ == "__main__":
 
 
     # Create instance of Neural Network
+    # Vary the momentum value and train the training set,change the weights,and calclualte the accuracy on
+    # training set and test for plot.
+    # vary numer of hidden units
     for momentum in (0.25, 0.5, 0.95):
         print("Starting time for momentum %s = %s" % (momentum, datetime.datetime.now().time()))
         startTime = time.time()

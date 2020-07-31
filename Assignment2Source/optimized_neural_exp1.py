@@ -13,7 +13,7 @@ trainingDataFile = "./mnist_train.csv"
 validationDataFile = "./mnist_validation.csv"
 learningRate = 0.1
 
-##plotting the graph for training and validation accuracy over epochs
+##plotting the graph for training and validation accuracy over 50 epochs for hiddennodes(20,50,100)
 def plot_graph(hiddenNodes):
     trainFile = 'train_output_exp1_' + str(hiddenNodes) + '.csv'
     validationFile = 'validation_output_exp1_' + str(hiddenNodes) + '.csv'
@@ -62,7 +62,9 @@ class MultiLayerDigitIdentifier:
         self.inputNodes = 785
         self.learningRate = 0.1
         self.epochs = 50
-        
+
+        ### Initialize the weight variable of the dimension 10 x 785  and initialize weight fot hidden layer
+        ### i.e (21 x 10) or (51 x 10) or (101 x 10)
         self.wInputToHidden = np.random.uniform(-0.05, 0.05, (self.inputNodes, self.hiddenNodes))
         self.wHiddenToOutput = np.random.uniform(-0.05, 0.05, (self.hiddenNodes + 1, self.outputNodes))
            
@@ -74,9 +76,11 @@ class MultiLayerDigitIdentifier:
 
         self.trainingAccuracy = []
         self.validationAccuracy = []
-
+        
+        ##Sigmiod activation function
         self.activationFunc = lambda x : scipy.special.expit(x)
 
+    ##initlizing training and validation file.
     def initialize_training_and_validation_file(self, trainingDataLoader, validationDataLoader):
         self.trainingArray = trainingDataLoader.dataArray
         self.trainingTargetClassList = trainingDataLoader.targetClassList
@@ -84,11 +88,14 @@ class MultiLayerDigitIdentifier:
         self.validationArray = validationDataLoader.dataArray
         self.validationTargetClassList = validationDataLoader.targetClassList
 
+    ##function to fill the target list
     def fill_target_list(self, targetClass):
         targetList = np.zeros((1,self.outputNodes))+0.1
         targetList[0, targetClass] = 0.9
         return targetList
 
+    ## for each value of hidden unit apply forward and backward propagation and 
+    ## calclualte the error terms for output and hidden layer.
     def learn_and_find_accuracy(self, epoch, dataArray, targetClassList, trainingExecution):
         self.predList = []
         self.actualList = []
@@ -98,30 +105,34 @@ class MultiLayerDigitIdentifier:
         
             inputArray = dataArray[i]
             inputArray = inputArray.reshape(1, self.inputNodes)
-            #print("Input array shape = ", inputArray.shape)
-            #print("W Input to hidden shape = ", self.wInputToHidden.shape)
+            ##Forward propagate the activation times the weights to each node in the hidden layer
             hiddenLayerValues = np.dot(inputArray, self.wInputToHidden)
             hiddenLayerSigmoid = self.activationFunc(hiddenLayerValues)
-            #print ("hidden outputs shape = ", hiddenLayerSigmoid.shape)
+            
 
             self.hiddenWithBias[0, 1:] = hiddenLayerSigmoid
-
+            ##Forward propagate the activations times weights from the hidden layer to the output layer.
             finalLayerValues = np.dot(self.hiddenWithBias, self.wHiddenToOutput)
             finalLayerSigmoid = self.activationFunc(finalLayerValues)
-            #print("Final outputs shape = ", finalLayerSigmoid.shape)
+     
 
             self.predList.append(np.argmax(finalLayerSigmoid))
             self.actualList.append(targetClass)
-
+            
             if trainingExecution and epoch > 0:
                 targetList = self.fill_target_list(targetClass)
-
+                ##Calculate the error terms for output unit
                 errorOutputLayer = finalLayerSigmoid * (1 - finalLayerSigmoid) * (targetList - finalLayerSigmoid)
+                ##Calculate the error terms for hidden unit
                 errorHiddenLayer = hiddenLayerSigmoid * (1 - hiddenLayerSigmoid) * np.dot(errorOutputLayer, self.wHiddenToOutput[1:,:].T)
 
+                ##Update the weights for hidden to output layer
                 self.wHiddenToOutput = self.wHiddenToOutput + (self.learningRate * errorOutputLayer * self.hiddenWithBias.T)
+
+                ##Update the weights for input to hidden layer
                 self.wInputToHidden = self.wInputToHidden + (self.learningRate * errorHiddenLayer * inputArray.T)
 
+        ##calculate the accuracy
         accuracy = ((np.array(self.predList) == np.array(self.actualList)).sum() / float(len(self.actualList))) * 100
         return accuracy
 
@@ -157,7 +168,7 @@ class MultiLayerDigitIdentifier:
         print(confusion_matrix(self.actualList, self.predList))
 
 if __name__ == "__main__":
-    ##Main Method
+    ## Main Method
 
     print("Starting time for file load = %s" % (datetime.datetime.now().time()))
     startTime = time.time()
@@ -170,7 +181,9 @@ if __name__ == "__main__":
     print("Time taken for loading the files is %s seconds" % (endTime - startTime))
 
 
-    # Create instance of Neural Network
+    # for each hiddenNodes count, train the training set,change the weights,and calclualte the accuracy on
+    # training set and test for plot.
+    # vary numer of hidden units
     for hiddenNodes in (20, 50, 100):
         print("Starting time for hidden nodes %s = %s" % (hiddenNodes, datetime.datetime.now().time()))
         startTime = time.time()
