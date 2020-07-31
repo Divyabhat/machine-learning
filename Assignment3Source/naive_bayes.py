@@ -1,20 +1,21 @@
 from collections import defaultdict
 import math
 import random
-import statistics
+import numpy
+import sys
 
 class NaiveBayes:
-    def __init__(self):
+    def __init__(self, trainingfile, testfile):
         self.valueMatrix = defaultdict(lambda: defaultdict(list))
-        self.meanMatrix = defaultdict(lambda: defaultdict())
-        self.sdMatrix = defaultdict(lambda: defaultdict())
+        self.meanMatrix = defaultdict(lambda: defaultdict(float))
+        self.sdMatrix = defaultdict(lambda: defaultdict(float))
 
         self.classCount = {}
         self.classProb = {}
         self.totalClass = 0
 
-        self.trainingFilePath = "./yeast_training.txt"
-        self.testFilePath = "./yeast_test.txt"
+        self.trainingFilePath = trainingfile
+        self.testFilePath = testfile
 
     def readTrainingFileAndProcess(self):
         fileContent = open(self.trainingFilePath, 'r')
@@ -37,26 +38,22 @@ class NaiveBayes:
             self.valueMatrix[classNum][i].append(nums[i])
 
     def calculateMeanAndSD(self):
-        for classIndex in range(1, len(self.classCount)+1):
+        for classIndex in self.classCount:
             for featureIndex in range(len(self.valueMatrix[classIndex])):
-                self.meanMatrix[classIndex][featureIndex] = statistics.mean(self.valueMatrix[classIndex][featureIndex])
-                sdTemp = statistics.stdev(self.valueMatrix[classIndex][featureIndex])
+                self.meanMatrix[classIndex][featureIndex] = numpy.mean(self.valueMatrix[classIndex][featureIndex])
+                sdTemp = numpy.std(self.valueMatrix[classIndex][featureIndex])
                 self.sdMatrix[classIndex][featureIndex] = sdTemp
                 if sdTemp < 0.01:
                     self.sdMatrix[classIndex][featureIndex] = 0.01
 
     def  printTrainingData(self):
-        for classIndex in range(1, len(self.classCount)+1):
+        for classIndex in self.classCount:
             for featureIndex in range(len(self.valueMatrix[classIndex])):
-                print("Class %d, attribute %d, mean = %.2f, std = %.2f" % (classIndex, featureIndex+1, self.meanMatrix[classIndex][featureIndex], self.sdMatrix[classIndex][featureIndex]))
-
-        print(self.totalClass)
-        print(self.classCount)
-        print(self.classProb)
+                print("Class %3d, attribute %d, mean = %.5f, std = %.5f" % (classIndex, featureIndex+1, self.meanMatrix[classIndex][featureIndex], self.sdMatrix[classIndex][featureIndex]))
 
     def calculateClassProb(self):
-        for i in range(1, len(self.classCount)+1):
-            self.classProb[i] = self.classCount[i] / self.totalClass
+        for classIndex in self.classCount:
+            self.classProb[classIndex] = self.classCount[classIndex] / self.totalClass
 
     def processTrainingSet(self):
         nb.readTrainingFileAndProcess()
@@ -65,8 +62,15 @@ class NaiveBayes:
         nb.printTrainingData()
 
     def calculateProbability(self, xi, mean, sd):
-        exponent = math.exp(-(math.pow(xi - mean, 2) / (2 * math.pow(sd, 2))))
-        return (1 / (math.sqrt(2 * math.pi) * sd)) * exponent
+        if sd == 0:
+            return 0
+
+        expVar = -1 * (math.pow((xi - mean), 2)) / (2 * sd * sd)
+        expValue = math.exp(expVar)
+
+        constValue = 1.0 / (math.sqrt(2 * numpy.pi) * sd)
+        prob = constValue * expValue
+        return prob
 
     def processTestSet(self):
         fileContent = open(self.testFilePath, 'r')
@@ -78,37 +82,44 @@ class NaiveBayes:
 
             actualClass = int(nums[-1])
 
-            probList = []
-            for classIndex in range(1, len(self.classCount)+1):
+            maxProb = -100.0
+            maxProbList = []
+            for classIndex in self.classCount:
                 prob = self.classProb[classIndex]
                 for featureIndex in range(len(nums) - 1):
                     prob = prob * self.calculateProbability(nums[featureIndex], self.meanMatrix[classIndex][featureIndex], self.sdMatrix[classIndex][featureIndex])
-                probList.append(prob)
 
-            maxProb = max(probList)
-            maxIndexList =  [i for i, j in enumerate(probList) if j == maxProb]
+                if prob > maxProb:
+                    maxProb = prob
+                    maxProbList = []
+                    maxProbList.append(classIndex)
+                elif prob == maxProb:
+                    maxProbList.append(classIndex)
 
-            selectedIndex = random.choice(maxIndexList)
+            predClass = random.choice(maxProbList)
 
             accuracy = 0.0
-            if len(maxIndexList) == 1:
-                if (selectedIndex + 1) == actualClass:
+            if len(maxProbList) == 1:
+                if actualClass == predClass:
                     accuracy = 1.0
                 else:
                     accuracy = 0.0
-            else:
-                accuracy = 1 / len(maxIndexList)
+            elif len(maxProbList) > 1:
+                accuracy = 1.0 / float(len(maxProbList))
 
+            print("ID=%3d, predicted=%2d, probability=%13.4f, true=%d, accuracy=%4.2f" % (linenumber, predClass, maxProb, actualClass, accuracy))
 
             classificationAccuracy += accuracy
-
-            print("ID=%5d, predicted=%3d, probability=%.4f, true=%3d, accuracy=%4.2f" % (linenumber, selectedIndex+1, probList[selectedIndex], actualClass, accuracy))
-
             linenumber += 1
         classificationAccuracy = classificationAccuracy / linenumber
-        print("Classification accuracy = %6.4f" % (classificationAccuracy))
+        print("Classification accuracy = %6.4f" % (classificationAccuracy * 100))
 
 if __name__ == "__main__":
-    nb = NaiveBayes()
+    nb = NaiveBayes("./yeast_training.txt", "./yeast_test.txt")
+    #nb = NaiveBayes("./satellite_training.txt", "./satellite_test.txt")
+    #nb = NaiveBayes("./pendigits_training.txt", "./pendigits_test.txt")
+
     nb.processTrainingSet()
     nb.processTestSet()
+
+
