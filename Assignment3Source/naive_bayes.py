@@ -70,7 +70,7 @@ class NaiveBayes:
 
         constValue = 1.0 / (math.sqrt(2 * numpy.pi) * sd)
         prob = constValue * expValue
-        return prob
+        return numpy.log(prob)
 
     def processTestSet(self):
         fileContent = open(self.testFilePath, 'r')
@@ -82,12 +82,12 @@ class NaiveBayes:
 
             actualClass = int(nums[-1])
 
-            maxProb = -100.0
+            maxProb = -1000000.0
             maxProbList = []
             for classIndex in self.classCount:
-                prob = self.classProb[classIndex]
+                prob = numpy.log(self.classProb[classIndex])
                 for featureIndex in range(len(nums) - 1):
-                    prob = prob * self.calculateProbability(nums[featureIndex], self.meanMatrix[classIndex][featureIndex], self.sdMatrix[classIndex][featureIndex])
+                    prob = prob + self.calculateProbability(nums[featureIndex], self.meanMatrix[classIndex][featureIndex], self.sdMatrix[classIndex][featureIndex])
 
                 if prob > maxProb:
                     maxProb = prob
@@ -96,16 +96,19 @@ class NaiveBayes:
                 elif prob == maxProb:
                     maxProbList.append(classIndex)
 
-            predClass = random.choice(maxProbList)
+            if len(maxProbList) == 0:
+                predClass = 0
+                accuracy = 0.0
+            else:
+                predClass = random.choice(maxProbList)
 
-            accuracy = 0.0
-            if len(maxProbList) == 1:
-                if actualClass == predClass:
-                    accuracy = 1.0
-                else:
-                    accuracy = 0.0
-            elif len(maxProbList) > 1:
-                accuracy = 1.0 / float(len(maxProbList))
+                if len(maxProbList) == 1:
+                    if actualClass == predClass:
+                        accuracy = 1.0
+                    else:
+                        accuracy = 0.0
+                elif len(maxProbList) > 1:
+                    accuracy = 1.0 / float(len(maxProbList))
 
             print("ID=%3d, predicted=%2d, probability=%13.4f, true=%d, accuracy=%4.2f" % (linenumber, predClass, maxProb, actualClass, accuracy))
 
@@ -115,9 +118,9 @@ class NaiveBayes:
         print("Classification accuracy = %6.4f" % (classificationAccuracy * 100))
 
 if __name__ == "__main__":
-    nb = NaiveBayes("./yeast_training.txt", "./yeast_test.txt")
+    #nb = NaiveBayes("./yeast_training.txt", "./yeast_test.txt")
     #nb = NaiveBayes("./satellite_training.txt", "./satellite_test.txt")
-    #nb = NaiveBayes("./pendigits_training.txt", "./pendigits_test.txt")
+    nb = NaiveBayes("./pendigits_training.txt", "./pendigits_test.txt")
 
     nb.processTrainingSet()
     nb.processTestSet()
