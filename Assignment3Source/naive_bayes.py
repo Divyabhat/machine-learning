@@ -47,7 +47,7 @@ class NaiveBayes:
                     self.sdMatrix[classIndex][featureIndex] = 0.01
 
     def  printTrainingData(self):
-        for classIndex in self.classCount:
+        for classIndex in sorted(self.classCount):
             for featureIndex in range(len(self.valueMatrix[classIndex])):
                 print("Class %3d, attribute %d, mean = %.5f, std = %.5f" % (classIndex, featureIndex+1, self.meanMatrix[classIndex][featureIndex], self.sdMatrix[classIndex][featureIndex]))
 
